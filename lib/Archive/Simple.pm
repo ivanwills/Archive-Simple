@@ -1,13 +1,12 @@
 package Archive::Simple;
 
-# Created on: 2012-02-18 19:45:24
+# Created on: 2012-02-18 19:53:08
 # Create by:  Ivan Wills
 # $Id$
 # $Revision$, $HeadURL$, $Date$
 # $Revision$, $Source$, $Date$
 
-use strict;
-use warnings;
+use Moose;
 use version;
 use Carp;
 use Scalar::Util;
@@ -15,20 +14,114 @@ use List::Util;
 #use List::MoreUtils;
 use Data::Dumper qw/Dumper/;
 use English qw/ -no_match_vars /;
-use base qw/Exporter/;
+use IO::All;
 
 our $VERSION     = version->new('0.0.1');
 our @EXPORT_OK   = qw//;
 our %EXPORT_TAGS = ();
 #our @EXPORT      = qw//;
 
-sub new {
-    my $caller = shift;
-    my $class  = ref $caller ? ref $caller : $caller;
-    my %param  = @_;
-    my $self   = \%param;
+has name => (
+    is       => 'ro',
+    isa      => 'Str',
+    required => 1,
+);
+has files => (
+    is      => 'rw',
+    isa     => 'HashRef',
+    default => sub {{}},
+);
+has _offset => (
+    is       => 'rw',
+    isa      => 'Int',
+);
+has _processed => (
+    is       => 'rw',
+    isa      => 'Bool',
+);
 
-    bless $self, $class;
+sub create {
+    my ($self, @files) = @_;
+
+    confess "You must specify a files to add to the archive\n" if !@files;
+
+    my $archive = io $self->name;
+    '' > $archive;
+        $archive->close;
+
+    @files = map {io $_} @files;
+
+    while ( my $file = shift @files ) {
+        next if $self->files->{$file};
+        next if !-e $file->name;
+
+        if ( -d $file->name ) {
+            push @files, io($file)->all;
+            next;
+        }
+
+        my $details = $self->files->{$file} = {};
+
+        $details->{start} = -s $archive->name;
+        io($file) >> $archive;
+        $archive->close;
+        $details->{end} = -s $archive->name;
+
+        $details->{executable} = 1 if -x $file->name;
+        #$details->{perms} = $file->perms;
+    }
+
+    my $header = "Archive::Simple $Archive::Simple::VERSION\n";
+    for my $file (sort keys %{ $self->files } ) {
+        my %data  = %{ $self->files->{$file} };
+        my $start = delete $data{start};
+        my $end   = delete $data{end};
+
+        $header .= "$file\t$start\t$end";
+        for my $key ( keys %data ) {
+            $header .= "\t$key=$data{$key}";
+        }
+
+        $header .= "\n";
+    }
+    $header .= "\n";
+    unshift @$archive, $header;
+
+    $self->_offset(length $header);
+    $self->_processed(1);
+}
+
+sub list {
+    my ($self) = @_;
+    $self->process() if !$self->_processed;
+
+    return keys %{ $self->files };
+}
+
+sub process {
+    my ($self) = @_;
+    return $self if $self->_processed;
+
+    my $archive = io $self->name;
+    die "Unknown file type '".$self->name."'\n" if $archive->[0] !~ /^Archive::Simple\s(\d+[.]\d+[.]\d+)$/xms;
+
+    my $offset = length $archive->[0];
+    my $i = 1;
+
+    while (1) {
+        my $line = $archive->[$i++];
+        $offset += length $line;
+        chomp $line;
+        last if !$line;
+
+        my ($file,$start,$end,@data) = split /\t/, $line;
+        my %data = map {/^([^=])=(.*)$/} @data;
+
+        $self->files->{$file} = { start => $start, end => $end, %data };
+    }
+
+    $self->_offset($offset + 1);
+    $self->_processed(1);
 
     return $self;
 }
@@ -77,15 +170,6 @@ form "An object of this class represents ...") to give the reader a high-level
 context to help them understand the methods that are subsequently described.
 
 
-=head3 C<new ( $search, )>
-
-Param: C<$search> - type (detail) - description
-
-Return: Archive::Simple -
-
-Description:
-
-=cut
 
 
 =head1 DIAGNOSTICS
