@@ -159,6 +159,25 @@ sub show {
     return $results;
 }
 
+sub extract {
+    my ($self, @files) = @_;
+    $self->process;
+
+    for my $file (@files) {
+        my $archive = io $self->name;
+        $archive->seek( $self->_offset + $self->files->{$file}{start}, 0 );
+        my $buffer;
+        my $size = $archive->read($buffer, $self->files->{$file}{end} - $self->files->{$file}{start});
+
+        $file = io $file;
+        my @dirs = $file->splitdir;
+        io->catdir(@dirs[0..@dirs-2])->mkpath;
+        $buffer > $file;
+    }
+
+    return;
+}
+
 1;
 
 __END__
