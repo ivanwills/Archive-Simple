@@ -17,7 +17,8 @@ use Pod::Usage;
 use Data::Dumper qw/Dumper/;
 use English qw/ -no_match_vars /;
 use FindBin qw/$Bin/;
-use Path::Class;
+use IO::All;
+use Archive::Simple;
 
 our $VERSION = version->new('0.0.1');
 my ($name)   = $PROGRAM_NAME =~ m{^.*/(.*?)$}mxs;
@@ -43,13 +44,13 @@ sub main {
     Getopt::Long::Configure('bundling');
     GetOptions(
         \%option,
-        'out|o=s',
+        'create|c',
+        'list|l',
         'verbose|v+',
         'man',
         'help',
         'VERSION!',
     ) or pod2usage(2);
-    #my $file = join ' ', @ARGV;
 
     if ( $option{'VERSION'} ) {
         print "$name Version = $VERSION\n";
@@ -62,9 +63,16 @@ sub main {
         pod2usage( -verbose => 1 );
     }
 
-
     # do stuff here
+    my $as = Archive::Simple->new( name => shift @ARGV );
 
+    if ($option{create}) {
+        $as->create(@ARGV);
+    }
+    if ($option{list}) {
+        print join "\n", sort $as->list;
+        print "\n";
+    }
 
     return;
 }
