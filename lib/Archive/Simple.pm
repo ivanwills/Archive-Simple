@@ -31,6 +31,10 @@ has files => (
     isa     => 'HashRef',
     default => sub {{}},
 );
+has manifest => (
+    is       => 'rw',
+    isa      => 'Bool',
+);
 has _offset => (
     is       => 'rw',
     isa      => 'Int',
@@ -47,9 +51,23 @@ sub create {
 
     my $archive = io $self->name;
     '' > $archive;
-        $archive->close;
+    $archive->close;
 
     @files = map {io $_} @files;
+
+    if ( $self->manifest ) {
+        my @new_files = @files;
+        @files = ();
+
+        while ( my $file = shift @new_files ) {
+            if ( -d $file->name && -f $file->name . '/MANIFEST' ) {
+                push @files, map {io $file->name . "/$_"} grep {$_} map {chomp; $_} @{ io($file->name . '/MANIFEST') };
+            }
+            else {
+                push @files, $file;
+            }
+        }
+    }
 
     while ( my $file = shift @files ) {
         next if $self->files->{$file};
@@ -110,8 +128,7 @@ sub process {
 
     while (1) {
         my $line = $archive->[$i++];
-        $offset += length $line;
-        chomp $line;
+        $offset += 1 + length $line;
         last if !$line;
 
         my ($file,$start,$end,@data) = split /\t/, $line;
@@ -124,6 +141,22 @@ sub process {
     $self->_processed(1);
 
     return $self;
+}
+
+sub show {
+    my ($self, @files) = @_;
+    $self->process;
+    my $results = '';
+
+    for my $file (@files) {
+        my $archive = io $self->name;
+        $archive->seek( $self->_offset + $self->files->{$file}{start}, 0 );
+        my $buffer;
+        my $size = $archive->read($buffer, $self->files->{$file}{end} - $self->files->{$file}{start});
+        $results .= $buffer;
+    }
+
+    return $results;
 }
 
 1;
