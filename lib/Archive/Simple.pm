@@ -81,12 +81,13 @@ sub create {
         my $details = $self->files->{$file} = {};
 
         $details->{start} = -s $archive->name;
-        io($file) >> $archive;
+        $file >> $archive;
         $archive->close;
         $details->{end} = -s $archive->name;
 
         $details->{executable} = 1 if -x $file->name;
         #$details->{perms} = $file->perms;
+        $self->get_module_info($file, $details) if $file->name =~ /[.]pm$/;
     }
 
     my $header = "Archive::Simple $Archive::Simple::VERSION\n";
@@ -107,6 +108,27 @@ sub create {
 
     $self->_offset(length $header);
     $self->_processed(1);
+}
+
+sub get_module_info {
+    my ($self, $file, $details) = @_;
+
+    my $package = $file->[0];
+
+    # protect from non-real module files (ie spec states that module file
+    # must start with a package declaration)
+    return if $package !~ /^\s*package/;
+
+    $package =~ s/^\s*package\s*|\s*;\s*$//gxms;
+
+    $details->{package} = $package;
+
+    my $cmd = qq/perl -e 'require "$file"; print \$$package\::VERSION'/;
+    #warn "$cmd\n";
+    my $ver = `$cmd`;
+    $details->{version} = $ver;
+
+    return;
 }
 
 sub list {
