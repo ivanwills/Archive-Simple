@@ -27,9 +27,16 @@ has name => (
     required => 1,
 );
 has files => (
-    is      => 'rw',
-    isa     => 'HashRef',
-    default => sub {{}},
+    is       => 'rw',
+    isa      => 'HashRef',
+    default  => sub {{}},
+    init_arg => undef,
+);
+has packages => (
+    is       => 'rw',
+    isa      => 'HashRef',
+    default  => sub {{}},
+    init_arg => undef,
 );
 has manifest => (
     is       => 'rw',
@@ -38,10 +45,12 @@ has manifest => (
 has _offset => (
     is       => 'rw',
     isa      => 'Int',
+    init_arg => undef,
 );
 has _processed => (
     is       => 'rw',
     isa      => 'Bool',
+    init_arg => undef,
 );
 
 sub create {
@@ -154,7 +163,11 @@ sub process {
         last if !$line;
 
         my ($file,$start,$end,@data) = split /\t/, $line;
-        my %data = map {/^([^=])=(.*)$/} @data;
+        my %data = map {my @a = split /=/, $_, 2} @data;
+
+        if ($data{package}) {
+            $self->packages->{$data{package}} = $file;
+        }
 
         $self->files->{$file} = { start => $start, end => $end, %data };
     }

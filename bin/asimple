@@ -101,15 +101,19 @@ This documentation refers to bin/asimple version 0.1.
 
 =head1 SYNOPSIS
 
-   bin/asimple [option]
+   bin/asimple [option] archive
 
  OPTIONS:
-  -o --other         other option
+  -c --create    Create
+  -l --list      List
+  -s --show      Show
+  -e --extract   Extract
+  -m --manifest  Use the MANIFEST file
 
-  -v --verbose       Show more detailed option
-     --version       Prints the version information
-     --help          Prints this help information
-     --man           Prints the full documentation for bin/asimple
+  -v --verbose   Show more detailed option
+     --version   Prints the version information
+     --help      Prints this help information
+     --man       Prints the full documentation for bin/asimple
 
 
 
